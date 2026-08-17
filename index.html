@@ -30,8 +30,8 @@
         <p id="kpi-imc" class="text-3xl font-bold text-gray-800">0</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow border-l-4 border-purple-500">
-        <p class="text-sm text-gray-500 font-medium">Promedio Examen</p>
-        <p id="kpi-examen" class="text-3xl font-bold text-gray-800">0</p>
+        <p class="text-sm text-gray-500 font-medium">Promedio Calif Tiro</p>
+        <p id="kpi-tiro" class="text-3xl font-bold text-gray-800">0</p>
       </div>
     </div>
 
@@ -69,15 +69,15 @@
             <p id="p-imc" class="text-xl font-bold">0</p>
             <p id="label-imc" class="text-xs mt-1 font-semibold">---</p>
           </div>
-          <div id="badge-fisicas" class="p-3 rounded-lg border shadow-sm">
-            <p class="text-xs text-gray-500 font-medium">Pruebas Físicas</p>
-            <p id="p-fisicas" class="text-xl font-bold">0</p>
-            <p id="label-fisicas" class="text-xs mt-1 font-semibold">---</p>
+          <div id="badge-tiro" class="p-3 rounded-lg border shadow-sm">
+            <p class="text-xs text-gray-500 font-medium">Calif. Tiro</p>
+            <p id="p-tiro" class="text-xl font-bold">0</p>
+            <p id="label-tiro" class="text-xs mt-1 font-semibold">---</p>
           </div>
-          <div id="badge-examen" class="p-3 rounded-lg border shadow-sm">
-            <p class="text-xs text-gray-500 font-medium">Examen</p>
-            <p id="p-examen" class="text-xl font-bold">0</p>
-            <p id="label-examen" class="text-xs mt-1 font-semibold">---</p>
+          <div id="badge-fisc" class="p-3 rounded-lg border shadow-sm">
+            <p class="text-xs text-gray-500 font-medium">Calif. Físicas</p>
+            <p id="p-fisc" class="text-xl font-bold">0</p>
+            <p id="label-fisc" class="text-xs mt-1 font-semibold">---</p>
           </div>
         </div>
       </div>
@@ -90,7 +90,7 @@
     <!-- Gráficos -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-lg font-semibold mb-4 text-gray-800">Promedio Pruebas Físicas por Equipo</h2>
+        <h2 class="text-lg font-semibold mb-4 text-gray-800">Promedio Calif. Físicas por Equipo</h2>
         <canvas id="chartEquipos"></canvas>
       </div>
       <div class="bg-white p-6 rounded-xl shadow">
@@ -116,9 +116,10 @@
               <th class="p-3">Nombre</th>
               <th class="p-3">Grado</th>
               <th class="p-3">Equipo</th>
+              <th class="p-3">Cargo / Comisión</th>
               <th class="p-3">IMC</th>
-              <th class="p-3">P. Físicas</th>
-              <th class="p-3">Examen</th>
+              <th class="p-3">Calif. Tiro</th>
+              <th class="p-3">Calif. Físc</th>
             </tr>
           </thead>
           <tbody id="tabla-body" class="divide-y text-sm text-gray-700"></tbody>
@@ -129,7 +130,7 @@
   </div>
 
   <script>
-    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beVyZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
     let todosLosDatos = [];
     let chartEquiposInstancia = null;
     let chartIMCInstancia = null;
@@ -149,43 +150,28 @@
         
         const csvText = await response.text();
 
-        // Leemos como matriz de filas sin asumír encabezados rígidos
         Papa.parse(csvText, {
-          header: false,
+          header: true,
           skipEmptyLines: true,
           complete: function(results) {
-            if (!results.data || results.data.length < 2) return;
+            if (!results.data || results.data.length === 0) return;
 
-            const headers = results.data[0].map(h => String(h).trim());
-            const rows = results.data.slice(1);
+            // Mapeo exacto basado en las columnas recibidas
+            todosLosDatos = results.data.map(d => {
+              const obtener = (patrones) => {
+                const key = Object.keys(d).find(k => patrones.some(p => k.trim().toUpperCase().includes(p)));
+                return key ? d[key] : null;
+              };
 
-            // Mapeo flexible por índice de columna
-            let idxID = headers.findIndex(h => /id|no|codigo/i.test(h));
-            let idxNombre = headers.findIndex(h => /nombre|evaluado|persona/i.test(h));
-            let idxGrado = headers.findIndex(h => /grado|rango/i.test(h));
-            let idxEquipo = headers.findIndex(h => /equipo|grupo/i.test(h));
-            let idxIMC = headers.findIndex(h => /imc|masa/i.test(h));
-            let idxPF = headers.findIndex(h => /fisic|fisi|prueba|condicion|p\.f|p_f/i.test(h));
-            let idxExamen = headers.findIndex(h => /examen|teor|nota|evalua/i.test(h));
-
-            // Respaldos por posición común si no los detecta por nombre
-            if (idxID === -1) idxID = 0;
-            if (idxNombre === -1) idxNombre = 1;
-            if (idxGrado === -1) idxGrado = 2;
-            if (idxEquipo === -1) idxEquipo = 3;
-            if (idxIMC === -1) idxIMC = 4;
-            if (idxPF === -1) idxPF = 5;
-            if (idxExamen === -1) idxExamen = 6;
-
-            todosLosDatos = rows.map(r => {
               return {
-                ID: r[idxID] ? String(r[idxID]).trim() : null,
-                Nombre: r[idxNombre] ? String(r[idxNombre]).trim() : null,
-                Grado: r[idxGrado] ? String(r[idxGrado]).trim() : '-',
-                Equipo: r[idxEquipo] ? String(r[idxEquipo]).trim() : 'Sin Equipo',
-                IMC: parseNum(r[idxIMC]),
-                PruebasFisicas: parseNum(r[idxPF]),
-                Examen: parseNum(r[idxExamen])
+                ID: obtener(['ID']) ? String(obtener(['ID'])).trim() : null,
+                Grado: obtener(['GRADO']) ? String(obtener(['GRADO'])).trim() : '-',
+                Nombre: obtener(['NOMBRE']) ? String(obtener(['NOMBRE'])).trim() : null,
+                Equipo: obtener(['EQUIPO']) ? String(obtener(['EQUIPO'])).trim() : 'Sin Equipo',
+                IMC: parseNum(obtener(['IMC'])),
+                CalifTiro: parseNum(obtener(['CALIF TIRO', 'TIRO'])),
+                CalifFisc: parseNum(obtener(['CALIF FISC', 'FISC'])),
+                Cargo: obtener(['CARGO', 'COMISIÓN', 'COMISION']) ? String(obtener(['CARGO', 'COMISIÓN', 'COMISION'])).trim() : '-'
               };
             }).filter(d => d.ID != null && d.Nombre != null);
 
@@ -222,16 +208,16 @@
       const promIMC = imcsValidos.length ? (imcsValidos.reduce((a, b) => a + b, 0) / imcsValidos.length).toFixed(1) : '0';
       document.getElementById('kpi-imc').innerText = promIMC;
 
-      const examenesValidos = todosLosDatos.map(d => d.Examen).filter(v => v !== null);
-      const promExamen = examenesValidos.length ? (examenesValidos.reduce((a, b) => a + b, 0) / examenesValidos.length).toFixed(1) : '0';
-      document.getElementById('kpi-examen').innerText = promExamen;
+      const tirosValidos = todosLosDatos.map(d => d.CalifTiro).filter(v => v !== null);
+      const promTiro = tirosValidos.length ? (tirosValidos.reduce((a, b) => a + b, 0) / tirosValidos.length).toFixed(1) : '0';
+      document.getElementById('kpi-tiro').innerText = promTiro;
 
       const equipos = {};
       todosLosDatos.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
         if (!equipos[eq]) equipos[eq] = { suma: 0, cuenta: 0 };
-        if (d.PruebasFisicas !== null) {
-          equipos[eq].suma += d.PruebasFisicas;
+        if (d.CalifFisc !== null) {
+          equipos[eq].suma += d.CalifFisc;
           equipos[eq].cuenta += 1;
         }
       });
@@ -244,7 +230,7 @@
         type: 'bar',
         data: {
           labels: labelsEquipos,
-          datasets: [{ label: 'Promedio P. Físicas', data: dataEquipos, backgroundColor: '#3B82F6' }]
+          datasets: [{ label: 'Promedio Calif. Físicas', data: dataEquipos, backgroundColor: '#3B82F6' }]
         }
       });
 
@@ -285,17 +271,17 @@
         errorMsg.classList.add('hidden');
 
         document.getElementById('p-nombre').innerText = persona.Nombre;
-        document.getElementById('p-grado-equipo').innerText = `${persona.Grado} • ${persona.Equipo}`;
+        document.getElementById('p-grado-equipo').innerText = `${persona.Grado} • ${persona.Equipo} (${persona.Cargo})`;
         document.getElementById('p-id').innerText = `ID: ${persona.ID}`;
 
         const semIMC = getSemaforoIMC(persona.IMC);
         aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC !== null ? persona.IMC.toFixed(1) : '-', semIMC);
 
-        const semFisicas = getSemaforoNota(persona.PruebasFisicas);
-        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas !== null ? persona.PruebasFisicas : '-', semFisicas);
+        const semTiro = getSemaforoNota(persona.CalifTiro);
+        aplicarEstiloBadge('badge-tiro', 'p-tiro', 'label-tiro', persona.CalifTiro !== null ? persona.CalifTiro : '-', semTiro);
 
-        const semExamen = getSemaforoNota(persona.Examen);
-        aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen !== null ? persona.Examen : '-', semExamen);
+        const semFisc = getSemaforoNota(persona.CalifFisc);
+        aplicarEstiloBadge('badge-fisc', 'p-fisc', 'label-fisc', persona.CalifFisc !== null ? persona.CalifFisc : '-', semFisc);
       } else {
         card.classList.add('hidden');
         errorMsg.classList.remove('hidden');
@@ -314,10 +300,9 @@
       let htmlContent = '';
       
       datos.forEach(d => {
-        const pf = d.PruebasFisicas;
         const semIMC = getSemaforoIMC(d.IMC);
-        const semFisicas = getSemaforoNota(pf);
-        const semExamen = getSemaforoNota(d.Examen);
+        const semTiro = getSemaforoNota(d.CalifTiro);
+        const semFisc = getSemaforoNota(d.CalifFisc);
 
         htmlContent += `
           <tr class="hover:bg-gray-50">
@@ -325,9 +310,10 @@
             <td class="p-3 font-medium">${d.Nombre}</td>
             <td class="p-3">${d.Grado}</td>
             <td class="p-3">${d.Equipo}</td>
+            <td class="p-3">${d.Cargo}</td>
             <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semIMC.bg} ${semIMC.text}">${d.IMC !== null ? d.IMC.toFixed(1) : '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semFisicas.bg} ${semFisicas.text}">${pf !== null ? pf : '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semExamen.bg} ${semExamen.text}">${d.Examen !== null ? d.Examen : '-'}</span></td>
+            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semTiro.bg} ${semTiro.text}">${d.CalifTiro !== null ? d.CalifTiro : '-'}</span></td>
+            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semFisc.bg} ${semFisc.text}">${d.CalifFisc !== null ? d.CalifFisc : '-'}</span></td>
           </tr>
         `;
       });
