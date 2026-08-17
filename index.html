@@ -131,15 +131,26 @@
   <script>
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beVyZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
     let todosLosDatos = [];
+    let chartEquiposInstancia = null;
+    let chartIMCInstancia = null;
 
-    // Helper para buscar valores en las columnas sin importar mayúsculas/minúsculas ni espacios
-    function obtenerValor(row, posiblesNombres) {
+    // Convertir valores numéricos con coma o punto
+    function parseNum(val) {
+      if (val === null || val === undefined || val === '') return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const str = String(val).replace(',', '.').trim();
+      const num = parseFloat(str);
+      return isNaN(num) ? null : num;
+    }
+
+    // Búsqueda ultra flexible de columnas
+    function obtenerValorFlexible(row, patrones) {
       const keys = Object.keys(row);
       for (let key of keys) {
         const keyLimpia = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        for (let nombre of posiblesNombres) {
-          const nombreLimpio = nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          if (keyLimpia === nombreLimpio) {
+        for (let pat of patrones) {
+          const patLimpio = pat.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          if (keyLimpia.includes(patLimpio) || patLimpio.includes(keyLimpia)) {
             return row[key];
           }
         }
@@ -156,39 +167,32 @@
 
         Papa.parse(csvText, {
           header: true,
-          dynamicTyping: true,
           skipEmptyLines: true,
           complete: function(results) {
-            if (!results.data || results.data.length === 0) {
-              console.error("El CSV descargado está vacío.");
-              return;
-            }
+            if (!results.data || results.data.length === 0) return;
 
-            // Normalización flexible de campos
+            // Imprimir en consola para ver encabezados reales
+            console.log("Encabezados encontrados en el CSV:", Object.keys(results.data[0]));
+
             todosLosDatos = results.data.map(d => {
-              const id = obtenerValor(d, ['id', 'ID', 'Id', 'No']);
-              const nombre = obtenerValor(d, ['nombre', 'Nombre', 'NOMBRE', 'Nombre Completo']);
-              const grado = obtenerValor(d, ['grado', 'Grado', 'GRADO']);
-              const equipo = obtenerValor(d, ['equipo', 'Equipo', 'EQUIPO']);
-              const imc = obtenerValor(d, ['imc', 'IMC', 'Imc']);
-              const pf = obtenerValor(d, ['pruebas fisicas', 'pruebasfisicas', 'p. fisicas', 'p.fisicas', 'pruebas_fisicas', 'fisicas']);
-              const examen = obtenerValor(d, ['examen', 'Examen', 'EXAMEN']);
+              const id = obtenerValorFlexible(d, ['id', 'no', 'codigo']);
+              const nombre = obtenerValorFlexible(d, ['nombre', 'evaluado', 'persona']);
+              const grado = obtenerValorFlexible(d, ['grado', 'rango']);
+              const equipo = obtenerValorFlexible(d, ['equipo', 'grupo']);
+              const imc = parseNum(obtenerValorFlexible(d, ['imc', 'masa']));
+              const pf = parseNum(obtenerValorFlexible(d, ['fisic', 'prueba', 'condicion', 'p.f']));
+              const examen = parseNum(obtenerValorFlexible(d, ['examen', 'teori', 'nota', 'evaluacion']));
 
               return {
-                ID: id,
-                Nombre: nombre,
-                Grado: grado,
-                Equipo: equipo,
+                ID: id ? String(id).trim() : null,
+                Nombre: nombre ? String(nombre).trim() : null,
+                Grado: grado ? String(grado).trim() : '-',
+                Equipo: equipo ? String(equipo).trim() : 'Sin Equipo',
                 IMC: imc,
                 PruebasFisicas: pf,
                 Examen: examen
               };
             }).filter(d => d.ID != null && d.Nombre != null);
-
-            if (todosLosDatos.length === 0) {
-              alert('Los datos del CSV fueron leídos pero las columnas no coinciden. Revisa que existan columnas "ID" y "Nombre" en tu hoja.');
-              return;
-            }
 
             procesarDashboard();
             poblarTabla(todosLosDatos);
@@ -197,7 +201,6 @@
         });
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        alert('No se pudieron obtener los datos de Google Sheets.');
       }
     }
 
@@ -210,8 +213,8 @@
     }
 
     function getSemaforoNota(nota) {
+      if (nota === null || nota === undefined) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
       const val = Number(nota);
-      if (!val && val !== 0) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
       if (val >= 80) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', label: 'Sobresaliente' };
       if (val >= 60) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', label: 'Aprobado' };
       return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', label: 'Reprobado' };
@@ -220,24 +223,30 @@
     function procesarDashboard() {
       document.getElementById('kpi-total').innerText = todosLosDatos.length;
       
-      const promIMC = (todosLosDatos.reduce((acc, d) => acc + Number(d.IMC || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-imc').innerText = isNaN(promIMC) ? '0' : promIMC;
+      const imcsValidos = todosLosDatos.map(d => d.IMC).filter(v => v !== null);
+      const promIMC = imcsValidos.length ? (imcsValidos.reduce((a, b) => a + b, 0) / imcsValidos.length).toFixed(1) : '0';
+      document.getElementById('kpi-imc').innerText = promIMC;
 
-      const promExamen = (todosLosDatos.reduce((acc, d) => acc + Number(d.Examen || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-examen').innerText = isNaN(promExamen) ? '0' : promExamen;
+      const examenesValidos = todosLosDatos.map(d => d.Examen).filter(v => v !== null);
+      const promExamen = examenesValidos.length ? (examenesValidos.reduce((a, b) => a + b, 0) / examenesValidos.length).toFixed(1) : '0';
+      document.getElementById('kpi-examen').innerText = promExamen;
 
+      // Promedio Pruebas Físicas por Equipo
       const equipos = {};
       todosLosDatos.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
         if (!equipos[eq]) equipos[eq] = { suma: 0, cuenta: 0 };
-        equipos[eq].suma += Number(d.PruebasFisicas || 0);
-        equipos[eq].cuenta += 1;
+        if (d.PruebasFisicas !== null) {
+          equipos[eq].suma += d.PruebasFisicas;
+          equipos[eq].cuenta += 1;
+        }
       });
 
       const labelsEquipos = Object.keys(equipos);
-      const dataEquipos = labelsEquipos.map(eq => (equipos[eq].suma / equipos[eq].cuenta).toFixed(1));
+      const dataEquipos = labelsEquipos.map(eq => equipos[eq].cuenta ? (equipos[eq].suma / equipos[eq].cuenta).toFixed(1) : 0);
 
-      new Chart(document.getElementById('chartEquipos'), {
+      if (chartEquiposInstancia) chartEquiposInstancia.destroy();
+      chartEquiposInstancia = new Chart(document.getElementById('chartEquipos'), {
         type: 'bar',
         data: {
           labels: labelsEquipos,
@@ -245,16 +254,19 @@
         }
       });
 
+      // Distribución IMC
       let bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
       todosLosDatos.forEach(d => {
-        const imc = Number(d.IMC);
-        if (imc < 18.5) bajo++;
-        else if (imc < 25) normal++;
-        else if (imc < 30) sobrepeso++;
-        else obesidad++;
+        if (d.IMC !== null) {
+          if (d.IMC < 18.5) bajo++;
+          else if (d.IMC < 25) normal++;
+          else if (d.IMC < 30) sobrepeso++;
+          else obesidad++;
+        }
       });
 
-      new Chart(document.getElementById('chartIMC'), {
+      if (chartIMCInstancia) chartIMCInstancia.destroy();
+      chartIMCInstancia = new Chart(document.getElementById('chartIMC'), {
         type: 'doughnut',
         data: {
           labels: ['Bajo Peso', 'Normal', 'Sobrepeso', 'Obesidad'],
@@ -280,17 +292,17 @@
         errorMsg.classList.add('hidden');
 
         document.getElementById('p-nombre').innerText = persona.Nombre;
-        document.getElementById('p-grado-equipo').innerText = `${persona.Grado || 'Sin Grado'} • ${persona.Equipo || 'Sin Equipo'}`;
+        document.getElementById('p-grado-equipo').innerText = `${persona.Grado} • ${persona.Equipo}`;
         document.getElementById('p-id').innerText = `ID: ${persona.ID}`;
 
         const semIMC = getSemaforoIMC(persona.IMC);
-        aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC || '-', semIMC);
+        aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC !== null ? persona.IMC.toFixed(1) : '-', semIMC);
 
         const semFisicas = getSemaforoNota(persona.PruebasFisicas);
-        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas || '-', semFisicas);
+        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas !== null ? persona.PruebasFisicas : '-', semFisicas);
 
         const semExamen = getSemaforoNota(persona.Examen);
-        aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen || '-', semExamen);
+        aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen !== null ? persona.Examen : '-', semExamen);
       } else {
         card.classList.add('hidden');
         errorMsg.classList.remove('hidden');
@@ -318,11 +330,11 @@
           <tr class="hover:bg-gray-50">
             <td class="p-3 font-semibold text-gray-900">${d.ID}</td>
             <td class="p-3 font-medium">${d.Nombre}</td>
-            <td class="p-3">${d.Grado || '-'}</td>
-            <td class="p-3">${d.Equipo || '-'}</td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semIMC.bg} ${semIMC.text}">${d.IMC || '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semFisicas.bg} ${semFisicas.text}">${pf || '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semExamen.bg} ${semExamen.text}">${d.Examen || '-'}</span></td>
+            <td class="p-3">${d.Grado}</td>
+            <td class="p-3">${d.Equipo}</td>
+            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semIMC.bg} ${semIMC.text}">${d.IMC !== null ? d.IMC.toFixed(1) : '-'}</span></td>
+            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semFisicas.bg} ${semFisicas.text}">${pf !== null ? pf : '-'}</span></td>
+            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semExamen.bg} ${semExamen.text}">${d.Examen !== null ? d.Examen : '-'}</span></td>
           </tr>
         `;
       });
