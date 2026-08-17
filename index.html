@@ -144,7 +144,6 @@
           dynamicTyping: true,
           skipEmptyLines: true,
           complete: function(results) {
-            // Normalizar las llaves (nombres de columna) y limpiar espacios extra
             todosLosDatos = results.data
               .map(d => {
                 const limpiado = {};
@@ -156,7 +155,7 @@
               .filter(d => d.ID != null && d.Nombre != null);
 
             if (todosLosDatos.length === 0) {
-              console.warn('El CSV se descargó pero no contiene registros válidos.');
+              console.warn('El CSV no contiene registros válidos.');
               return;
             }
 
@@ -167,11 +166,10 @@
         });
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        alert('No se pudieron obtener los datos. Revisa la consola o verifica la publicación del Google Sheet.');
+        alert('No se pudieron obtener los datos. Revisa la conexión o publica la hoja en la web.');
       }
     }
 
-    // Funciones del Semáforo de Colores
     function getSemaforoIMC(imc) {
       const val = Number(imc);
       if (!val) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
@@ -197,7 +195,6 @@
       const promExamen = (todosLosDatos.reduce((acc, d) => acc + Number(d.Examen || 0), 0) / todosLosDatos.length).toFixed(1);
       document.getElementById('kpi-examen').innerText = promExamen;
 
-      // Gráfico Equipos
       const equipos = {};
       todosLosDatos.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
@@ -217,7 +214,6 @@
         }
       });
 
-      // Gráfico IMC
       let bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
       todosLosDatos.forEach(d => {
         const imc = Number(d.IMC);
@@ -236,7 +232,6 @@
       });
     }
 
-    // Buscar Persona Individual
     function buscarPersona() {
       const query = document.getElementById('search-id').value.trim().toLowerCase();
       const card = document.getElementById('card-persona');
@@ -279,7 +274,6 @@
       document.getElementById(labelId).innerText = semaforo.label;
     }
 
-    // Tabla con Badges de colores
     function poblarTabla(datos) {
       const tbody = document.getElementById('tabla-body');
       let htmlContent = '';
