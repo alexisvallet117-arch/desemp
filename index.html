@@ -3,80 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard de Evaluaciones</title>
+  <title>Dashboard Interactivo de Evaluaciones</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-100 p-4 md:p-6 text-gray-800">
   <div class="max-w-7xl mx-auto space-y-6">
     
-    <!-- Encabezado -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <!-- Encabezado con Filtro Global -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
       <div>
-        <h1 class="text-3xl font-bold text-gray-800">Dashboard de Evaluaciones</h1>
-        <p class="text-gray-500 text-sm">Monitoreo individual y grupal con alertas visuales</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Dashboard de Evaluaciones</h1>
+        <p class="text-gray-500 text-sm mt-1">Monitoreo individual y grupal interactivo</p>
+      </div>
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <label for="filtro-equipo" class="text-sm font-semibold text-gray-600 whitespace-nowrap">Equipo:</label>
+        <select id="filtro-equipo" onchange="aplicarFiltros()" class="w-full md:w-48 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+          <option value="todos">Todos los equipos</option>
+        </select>
       </div>
     </div>
     
     <!-- Tarjetas KPI Globales -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500">
-        <p class="text-sm text-gray-500 font-medium">Total Evaluados</p>
-        <p id="kpi-total" class="text-3xl font-bold text-gray-800">0</p>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-blue-500">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Evaluados</p>
+        <p id="kpi-total" class="text-3xl font-extrabold text-gray-900 mt-2">0</p>
       </div>
-      <div class="bg-white p-4 rounded-xl shadow border-l-4 border-green-500">
-        <p class="text-sm text-gray-500 font-medium">Promedio IMC</p>
-        <p id="kpi-imc" class="text-3xl font-bold text-gray-800">0</p>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-emerald-500">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Promedio IMC</p>
+        <p id="kpi-imc" class="text-3xl font-extrabold text-gray-900 mt-2">0</p>
       </div>
-      <div class="bg-white p-4 rounded-xl shadow border-l-4 border-purple-500">
-        <p class="text-sm text-gray-500 font-medium">Promedio Examen</p>
-        <p id="kpi-examen" class="text-3xl font-bold text-gray-800">0</p>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-purple-500">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Promedio Calif Tiro</p>
+        <p id="kpi-examen" class="text-3xl font-extrabold text-gray-900 mt-2">0</p>
       </div>
     </div>
 
-    <!-- Buscador Individual por ID / Nombre -->
-    <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
-      <h2 class="text-lg font-semibold text-gray-800 mb-3">Consulta de Registro Individual</h2>
-      <div class="flex gap-3 max-w-md">
+    <!-- Buscador Individual e Interactivo -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <h2 class="text-lg font-bold text-gray-900 mb-3">Consulta de Registro Individual</h2>
+      <div class="relative max-w-md">
         <input 
           type="text" 
           id="search-id" 
-          placeholder="Ingresa ID o Nombre..." 
-          class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          oninput="buscarPersonaLive()" 
+          placeholder="Escribe ID o Nombre en tiempo real..." 
+          class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
         />
-        <button 
-          onclick="buscarPersona()" 
-          class="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-        >
-          Buscar
-        </button>
       </div>
 
       <!-- Tarjeta Detalle Persona con Semáforo -->
-      <div id="card-persona" class="hidden mt-6 p-5 bg-gray-50 border rounded-xl">
+      <div id="card-persona" class="hidden mt-6 p-5 bg-gradient-to-r from-gray-50 to-blue-50/30 border border-gray-200 rounded-xl transition-all">
         <div class="flex justify-between items-start mb-4">
           <div>
             <h3 id="p-nombre" class="text-xl font-bold text-gray-900">---</h3>
-            <p id="p-grado-equipo" class="text-sm text-gray-600">---</p>
+            <p id="p-grado-equipo" class="text-sm text-gray-600 mt-0.5">---</p>
           </div>
-          <span id="p-id" class="px-3 py-1 bg-gray-200 text-gray-800 text-xs font-semibold rounded-full">ID: ---</span>
+          <span id="p-id" class="px-3 py-1 bg-white border border-gray-200 text-gray-800 text-xs font-bold rounded-full shadow-sm">ID: ---</span>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-          <div id="badge-imc" class="p-3 rounded-lg border shadow-sm">
-            <p class="text-xs text-gray-500 font-medium">IMC</p>
-            <p id="p-imc" class="text-xl font-bold">0</p>
+          <div id="badge-imc" class="p-3.5 rounded-xl border shadow-sm">
+            <p class="text-xs font-medium text-gray-500">IMC</p>
+            <p id="p-imc" class="text-2xl font-black mt-1">0</p>
             <p id="label-imc" class="text-xs mt-1 font-semibold">---</p>
           </div>
-          <div id="badge-fisicas" class="p-3 rounded-lg border shadow-sm">
-            <p class="text-xs text-gray-500 font-medium">Pruebas Físicas</p>
-            <p id="p-fisicas" class="text-xl font-bold">0</p>
+          <div id="badge-fisicas" class="p-3.5 rounded-xl border shadow-sm">
+            <p class="text-xs font-medium text-gray-500">Calif. Físicas</p>
+            <p id="p-fisicas" class="text-2xl font-black mt-1">0</p>
             <p id="label-fisicas" class="text-xs mt-1 font-semibold">---</p>
           </div>
-          <div id="badge-examen" class="p-3 rounded-lg border shadow-sm">
-            <p class="text-xs text-gray-500 font-medium">Calificación de Tiro</p>
-            <p id="p-examen" class="text-xl font-bold">0</p>
+          <div id="badge-examen" class="p-3.5 rounded-xl border shadow-sm">
+            <p class="text-xs font-medium text-gray-500">Calif. Tiro</p>
+            <p id="p-examen" class="text-2xl font-black mt-1">0</p>
             <p id="label-examen" class="text-xs mt-1 font-semibold">---</p>
           </div>
         </div>
@@ -87,41 +88,45 @@
       </p>
     </div>
 
-    <!-- Gráficos -->
+    <!-- Gráficos Interactivos -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-lg font-semibold mb-4 text-gray-800">Promedio Pruebas Físicas por Equipo</h2>
-        <canvas id="chartEquipos"></canvas>
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <h2 class="text-lg font-bold mb-1 text-gray-900">Promedio Calif. Físicas por Equipo</h2>
+        <p class="text-xs text-gray-400 mb-4">Haz clic en una barra para filtrar ese equipo</p>
+        <div class="relative h-64">
+          <canvas id="chartEquipos"></canvas>
+        </div>
       </div>
-      <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-lg font-semibold mb-4 text-gray-800">Distribución de IMC</h2>
-        <canvas id="chartIMC"></canvas>
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <h2 class="text-lg font-bold mb-1 text-gray-900">Distribución de IMC</h2>
+        <p class="text-xs text-gray-400 mb-4">Proporción según categoría nutricional</p>
+        <div class="relative h-64 flex justify-center">
+          <canvas id="chartIMC"></canvas>
+        </div>
       </div>
     </div>
 
-    <!-- Tabla General -->
-    <div class="bg-white p-6 rounded-xl shadow overflow-hidden">
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
-        <h2 class="text-lg font-semibold text-gray-800">Listado General de Evaluados</h2>
-        <select id="filtro-equipo" onchange="filtrarTabla()" class="px-3 py-2 border rounded-lg text-sm text-gray-700">
-          <option value="todos">Todos los equipos</option>
-        </select>
+    <!-- Tabla General con Selección -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Listado General de Evaluados</h2>
+        <span class="text-xs text-gray-400">Haz clic en cualquier fila para ver el detalle individual</span>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="bg-gray-50 border-b text-xs text-gray-500 uppercase font-semibold">
+            <tr class="bg-gray-50/80 border-b border-gray-200 text-xs text-gray-500 uppercase font-semibold">
               <th class="p-3">ID</th>
               <th class="p-3">Nombre</th>
               <th class="p-3">Grado</th>
               <th class="p-3">Equipo</th>
               <th class="p-3">IMC</th>
-              <th class="p-3">P. Físicas</th>
-              <th class="p-3">Calif fisc</th>
+              <th class="p-3">Calif. Físc</th>
+              <th class="p-3">Calif. Tiro</th>
             </tr>
           </thead>
-          <tbody id="tabla-body" class="divide-y text-sm text-gray-700"></tbody>
+          <tbody id="tabla-body" class="divide-y divide-gray-100 text-sm text-gray-700"></tbody>
         </table>
       </div>
     </div>
@@ -131,17 +136,25 @@
   <script>
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beVyZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
     let todosLosDatos = [];
+    let datosFiltrados = [];
+    let chartEquiposInstancia = null;
+    let chartIMCInstancia = null;
 
-    // Helper para buscar valores en las columnas sin importar mayúsculas/minúsculas ni espacios
+    function parseNum(val) {
+      if (val === null || val === undefined || val === '') return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const str = String(val).replace(',', '.').trim();
+      const num = parseFloat(str);
+      return isNaN(num) ? null : num;
+    }
+
     function obtenerValor(row, posiblesNombres) {
       const keys = Object.keys(row);
       for (let key of keys) {
         const keyLimpia = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         for (let nombre of posiblesNombres) {
           const nombreLimpio = nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          if (keyLimpia === nombreLimpio) {
-            return row[key];
-          }
+          if (keyLimpia === nombreLimpio) return row[key];
         }
       }
       return null;
@@ -151,7 +164,6 @@
       try {
         const response = await fetch(SHEET_CSV_URL);
         if (!response.ok) throw new Error('Error al conectar con Google Sheets');
-        
         const csvText = await response.text();
 
         Papa.parse(csvText, {
@@ -159,116 +171,148 @@
           dynamicTyping: true,
           skipEmptyLines: true,
           complete: function(results) {
-            if (!results.data || results.data.length === 0) {
-              console.error("El CSV descargado está vacío.");
-              return;
-            }
+            if (!results.data || results.data.length === 0) return;
 
-            // Normalización flexible de campos
             todosLosDatos = results.data.map(d => {
               const id = obtenerValor(d, ['id', 'ID', 'Id', 'No']);
-              const nombre = obtenerValor(d, ['nombre', 'Nombre', 'NOMBRE', 'Nombre Completo']);
+              const nombre = obtenerValor(d, ['nombre', 'Nombre', 'NOMBRE']);
               const grado = obtenerValor(d, ['grado', 'Grado', 'GRADO']);
               const equipo = obtenerValor(d, ['equipo', 'Equipo', 'EQUIPO']);
-              const imc = obtenerValor(d, ['imc', 'IMC', 'Imc']);
-              const pf = obtenerValor(d, ['CALIF FISC', 'pruebasfisicas', 'p. fisicas', 'p.fisicas', 'pruebas_fisicas', 'fisicas']);
-              const examen = obtenerValor(d, ['CALIF TIRO', 'Examen', 'EXAMEN']);
+              const imc = parseNum(obtenerValor(d, ['imc', 'IMC', 'Imc']));
+              const pf = parseNum(obtenerValor(d, ['CALIF FISC', 'pruebasfisicas', 'p. fisicas', 'fisicas']));
+              const examen = parseNum(obtenerValor(d, ['CALIF TIRO', 'Examen', 'EXAMEN']));
 
               return {
-                ID: id,
-                Nombre: nombre,
-                Grado: grado,
-                Equipo: equipo,
+                ID: id ? String(id).trim() : null,
+                Nombre: nombre ? String(nombre).trim() : null,
+                Grado: grado ? String(grado).trim() : '-',
+                Equipo: equipo ? String(equipo).trim() : 'Sin Equipo',
                 IMC: imc,
                 PruebasFisicas: pf,
                 Examen: examen
               };
             }).filter(d => d.ID != null && d.Nombre != null);
 
-            if (todosLosDatos.length === 0) {
-              alert('Los datos del CSV fueron leídos pero las columnas no coinciden. Revisa que existan columnas "ID" y "Nombre" en tu hoja.');
-              return;
-            }
-
-            procesarDashboard();
-            poblarTabla(todosLosDatos);
+            datosFiltrados = [...todosLosDatos];
             poblarFiltroEquipos();
+            actualizarDashboard();
           }
         });
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        alert('No se pudieron obtener los datos de Google Sheets.');
       }
     }
 
     function getSemaforoIMC(imc) {
+      if (imc === null || imc === undefined) return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', label: 'Sin datos' };
       const val = Number(imc);
-      if (!val) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
-      if (val >= 18.5 && val <= 24.9) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', label: 'Normal' };
-      if (val >= 25 && val <= 29.9) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', label: 'Sobrepeso' };
-      return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', label: val < 18.5 ? 'Bajo Peso' : 'Obesidad' };
+      if (val >= 18.5 && val <= 24.9) return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Normal' };
+      if (val >= 25 && val <= 29.9) return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Sobrepeso' };
+      return { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', label: val < 18.5 ? 'Bajo Peso' : 'Obesidad' };
     }
 
     function getSemaforoNota(nota) {
+      if (nota === null || nota === undefined) return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', label: 'Sin datos' };
       const val = Number(nota);
-      if (!val && val !== 0) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
-      if (val >= 80) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', label: 'Sobresaliente' };
-      if (val >= 60) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', label: 'Aprobado' };
-      return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', label: 'Reprobado' };
+      if (val >= 80) return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Sobresaliente' };
+      if (val >= 60) return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Aprobado' };
+      return { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', label: 'Reprobado' };
     }
 
-    function procesarDashboard() {
-      document.getElementById('kpi-total').innerText = todosLosDatos.length;
-      
-      const promIMC = (todosLosDatos.reduce((acc, d) => acc + Number(d.IMC || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-imc').innerText = isNaN(promIMC) ? '0' : promIMC;
+    function aplicarFiltros() {
+      const equipoSel = document.getElementById('filtro-equipo').value;
+      datosFiltrados = equipoSel === 'todos' ? [...todosLosDatos] : todosLosDatos.filter(d => d.Equipo === equipoSel);
+      actualizarDashboard();
+    }
 
-      const promExamen = (todosLosDatos.reduce((acc, d) => acc + Number(d.Examen || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-examen').innerText = isNaN(promExamen) ? '0' : promExamen;
+    function actualizarDashboard() {
+      // 1. KPIs
+      document.getElementById('kpi-total').innerText = datosFiltrados.length;
 
+      const imcs = datosFiltrados.map(d => d.IMC).filter(v => v !== null);
+      const promIMC = imcs.length ? (imcs.reduce((a, b) => a + b, 0) / imcs.length).toFixed(1) : '0';
+      document.getElementById('kpi-imc').innerText = promIMC;
+
+      const examenes = datosFiltrados.map(d => d.Examen).filter(v => v !== null);
+      const promExamen = examenes.length ? (examenes.reduce((a, b) => a + b, 0) / examenes.length).toFixed(1) : '0';
+      document.getElementById('kpi-examen').innerText = promExamen;
+
+      // 2. Tabla
+      poblarTabla(datosFiltrados);
+
+      // 3. Gráficos
+      renderGraficos();
+    }
+
+    function renderGraficos() {
       const equipos = {};
-      todosLosDatos.forEach(d => {
+      datosFiltrados.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
         if (!equipos[eq]) equipos[eq] = { suma: 0, cuenta: 0 };
-        equipos[eq].suma += Number(d.PruebasFisicas || 0);
-        equipos[eq].cuenta += 1;
+        if (d.PruebasFisicas !== null) {
+          equipos[eq].suma += d.PruebasFisicas;
+          equipos[eq].cuenta += 1;
+        }
       });
 
       const labelsEquipos = Object.keys(equipos);
-      const dataEquipos = labelsEquipos.map(eq => (equipos[eq].suma / equipos[eq].cuenta).toFixed(1));
+      const dataEquipos = labelsEquipos.map(eq => equipos[eq].cuenta ? (equipos[eq].suma / equipos[eq].cuenta).toFixed(1) : 0);
 
-      new Chart(document.getElementById('chartEquipos'), {
+      if (chartEquiposInstancia) chartEquiposInstancia.destroy();
+      chartEquiposInstancia = new Chart(document.getElementById('chartEquipos'), {
         type: 'bar',
         data: {
           labels: labelsEquipos,
-          datasets: [{ label: 'Promedio P. Físicas', data: dataEquipos, backgroundColor: '#3B82F6' }]
+          datasets: [{ label: 'Promedio P. Físicas', data: dataEquipos, backgroundColor: '#3B82F6', borderRadius: 8 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick: (evt, activeElements) => {
+            if (activeElements.length > 0) {
+              const index = activeElements[0].index;
+              const equipoClicked = labelsEquipos[index];
+              document.getElementById('filtro-equipo').value = equipoClicked;
+              aplicarFiltros();
+            }
+          }
         }
       });
 
       let bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
-      todosLosDatos.forEach(d => {
-        const imc = Number(d.IMC);
-        if (imc < 18.5) bajo++;
-        else if (imc < 25) normal++;
-        else if (imc < 30) sobrepeso++;
-        else obesidad++;
+      datosFiltrados.forEach(d => {
+        if (d.IMC !== null) {
+          if (d.IMC < 18.5) bajo++;
+          else if (d.IMC < 25) normal++;
+          else if (d.IMC < 30) sobrepeso++;
+          else obesidad++;
+        }
       });
 
-      new Chart(document.getElementById('chartIMC'), {
+      if (chartIMCInstancia) chartIMCInstancia.destroy();
+      chartIMCInstancia = new Chart(document.getElementById('chartIMC'), {
         type: 'doughnut',
         data: {
           labels: ['Bajo Peso', 'Normal', 'Sobrepeso', 'Obesidad'],
-          datasets: [{ data: [bajo, normal, sobrepeso, obesidad], backgroundColor: ['#60A5FA', '#34D399', '#FBBF24', '#F87171'] }]
+          datasets: [{ data: [bajo, normal, sobrepeso, obesidad], backgroundColor: ['#60A5FA', '#10B981', '#F59E0B', '#EF4444'] }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
         }
       });
     }
 
-    function buscarPersona() {
+    function buscarPersonaLive() {
       const query = document.getElementById('search-id').value.trim().toLowerCase();
       const card = document.getElementById('card-persona');
       const errorMsg = document.getElementById('search-error');
 
-      if (!query) return;
+      if (!query) {
+        card.classList.add('hidden');
+        errorMsg.classList.add('hidden');
+        return;
+      }
 
       const persona = todosLosDatos.find(d => 
         String(d.ID).toLowerCase() === query || 
@@ -276,30 +320,46 @@
       );
 
       if (persona) {
-        card.classList.remove('hidden');
-        errorMsg.classList.add('hidden');
-
-        document.getElementById('p-nombre').innerText = persona.Nombre;
-        document.getElementById('p-grado-equipo').innerText = `${persona.Grado || 'Sin Grado'} • ${persona.Equipo || 'Sin Equipo'}`;
-        document.getElementById('p-id').innerText = `ID: ${persona.ID}`;
-
-        const semIMC = getSemaforoIMC(persona.IMC);
-        aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC || '-', semIMC);
-
-        const semFisicas = getSemaforoNota(persona.PruebasFisicas);
-        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas || '-', semFisicas);
-
-        const semExamen = getSemaforoNota(persona.Examen);
-        aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen || '-', semExamen);
+        mostrarTarjetaPersona(persona);
       } else {
         card.classList.add('hidden');
         errorMsg.classList.remove('hidden');
       }
     }
 
+    function seleccionarPersona(id) {
+      const persona = todosLosDatos.find(d => String(d.ID) === String(id));
+      if (persona) {
+        document.getElementById('search-id').value = persona.Nombre;
+        mostrarTarjetaPersona(persona);
+        window.scrollTo({ top: 150, behavior: 'smooth' });
+      }
+    }
+
+    function mostrarTarjetaPersona(persona) {
+      const card = document.getElementById('card-persona');
+      const errorMsg = document.getElementById('search-error');
+      
+      card.classList.remove('hidden');
+      errorMsg.classList.add('hidden');
+
+      document.getElementById('p-nombre').innerText = persona.Nombre;
+      document.getElementById('p-grado-equipo').innerText = `${persona.Grado} • ${persona.Equipo}`;
+      document.getElementById('p-id').innerText = `ID: ${persona.ID}`;
+
+      const semIMC = getSemaforoIMC(persona.IMC);
+      aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC !== null ? persona.IMC.toFixed(1) : '-', semIMC);
+
+      const semFisicas = getSemaforoNota(persona.PruebasFisicas);
+      aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas !== null ? persona.PruebasFisicas : '-', semFisicas);
+
+      const semExamen = getSemaforoNota(persona.Examen);
+      aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen !== null ? persona.Examen : '-', semExamen);
+    }
+
     function aplicarEstiloBadge(containerId, valueId, labelId, valor, semaforo) {
       const container = document.getElementById(containerId);
-      container.className = `p-3 rounded-lg border shadow-sm ${semaforo.bg} ${semaforo.border} ${semaforo.text}`;
+      container.className = `p-3.5 rounded-xl border shadow-sm ${semaforo.bg} ${semaforo.border} ${semaforo.text}`;
       document.getElementById(valueId).innerText = valor;
       document.getElementById(labelId).innerText = semaforo.label;
     }
@@ -309,20 +369,19 @@
       let htmlContent = '';
       
       datos.forEach(d => {
-        const pf = d.PruebasFisicas;
         const semIMC = getSemaforoIMC(d.IMC);
-        const semFisicas = getSemaforoNota(pf);
+        const semFisicas = getSemaforoNota(d.PruebasFisicas);
         const semExamen = getSemaforoNota(d.Examen);
 
         htmlContent += `
-          <tr class="hover:bg-gray-50">
-            <td class="p-3 font-semibold text-gray-900">${d.ID}</td>
-            <td class="p-3 font-medium">${d.Nombre}</td>
-            <td class="p-3">${d.Grado || '-'}</td>
-            <td class="p-3">${d.Equipo || '-'}</td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semIMC.bg} ${semIMC.text}">${d.IMC || '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semFisicas.bg} ${semFisicas.text}">${pf || '-'}</span></td>
-            <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded ${semExamen.bg} ${semExamen.text}">${d.Examen || '-'}</span></td>
+          <tr onclick="seleccionarPersona('${d.ID}')" class="hover:bg-blue-50/50 cursor-pointer transition-colors">
+            <td class="p-3 font-bold text-gray-900">${d.ID}</td>
+            <td class="p-3 font-semibold text-gray-800">${d.Nombre}</td>
+            <td class="p-3">${d.Grado}</td>
+            <td class="p-3">${d.Equipo}</td>
+            <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded-lg border ${semIMC.bg} ${semIMC.border} ${semIMC.text}">${d.IMC !== null ? d.IMC.toFixed(1) : '-'}</span></td>
+            <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded-lg border ${semFisicas.bg} ${semFisicas.border} ${semFisicas.text}">${d.PruebasFisicas !== null ? d.PruebasFisicas : '-'}</span></td>
+            <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded-lg border ${semExamen.bg} ${semExamen.border} ${semExamen.text}">${d.Examen !== null ? d.Examen : '-'}</span></td>
           </tr>
         `;
       });
@@ -337,16 +396,6 @@
       equiposUnicos.forEach(eq => {
         select.innerHTML += `<option value="${eq}">${eq}</option>`;
       });
-    }
-
-    function filtrarTabla() {
-      const seleccion = document.getElementById('filtro-equipo').value;
-      if (seleccion === 'todos') {
-        poblarTabla(todosLosDatos);
-      } else {
-        const filtrados = todosLosDatos.filter(d => d.Equipo === seleccion);
-        poblarTabla(filtrados);
-      }
     }
 
     cargarDatos();
