@@ -132,6 +132,21 @@
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beVyZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
     let todosLosDatos = [];
 
+    // Helper para buscar valores en las columnas sin importar mayúsculas/minúsculas ni espacios
+    function obtenerValor(row, posiblesNombres) {
+      const keys = Object.keys(row);
+      for (let key of keys) {
+        const keyLimpia = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (let nombre of posiblesNombres) {
+          const nombreLimpio = nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          if (keyLimpia === nombreLimpio) {
+            return row[key];
+          }
+        }
+      }
+      return null;
+    }
+
     async function cargarDatos() {
       try {
         const response = await fetch(SHEET_CSV_URL);
@@ -144,18 +159,34 @@
           dynamicTyping: true,
           skipEmptyLines: true,
           complete: function(results) {
-            todosLosDatos = results.data
-              .map(d => {
-                const limpiado = {};
-                for (let key in d) {
-                  if (key) limpiado[key.trim()] = typeof d[key] === 'string' ? d[key].trim() : d[key];
-                }
-                return limpiado;
-              })
-              .filter(d => d.ID != null && d.Nombre != null);
+            if (!results.data || results.data.length === 0) {
+              console.error("El CSV descargado está vacío.");
+              return;
+            }
+
+            // Normalización flexible de campos
+            todosLosDatos = results.data.map(d => {
+              const id = obtenerValor(d, ['id', 'ID', 'Id', 'No']);
+              const nombre = obtenerValor(d, ['nombre', 'Nombre', 'NOMBRE', 'Nombre Completo']);
+              const grado = obtenerValor(d, ['grado', 'Grado', 'GRADO']);
+              const equipo = obtenerValor(d, ['equipo', 'Equipo', 'EQUIPO']);
+              const imc = obtenerValor(d, ['imc', 'IMC', 'Imc']);
+              const pf = obtenerValor(d, ['pruebas fisicas', 'pruebasfisicas', 'p. fisicas', 'p.fisicas', 'pruebas_fisicas', 'fisicas']);
+              const examen = obtenerValor(d, ['examen', 'Examen', 'EXAMEN']);
+
+              return {
+                ID: id,
+                Nombre: nombre,
+                Grado: grado,
+                Equipo: equipo,
+                IMC: imc,
+                PruebasFisicas: pf,
+                Examen: examen
+              };
+            }).filter(d => d.ID != null && d.Nombre != null);
 
             if (todosLosDatos.length === 0) {
-              console.warn('El CSV no contiene registros válidos.');
+              alert('Los datos del CSV fueron leídos pero las columnas no coinciden. Revisa que existan columnas "ID" y "Nombre" en tu hoja.');
               return;
             }
 
@@ -166,7 +197,7 @@
         });
       } catch (error) {
         console.error('Error al cargar datos:', error);
-        alert('No se pudieron obtener los datos. Revisa la conexión o publica la hoja en la web.');
+        alert('No se pudieron obtener los datos de Google Sheets.');
       }
     }
 
@@ -190,16 +221,16 @@
       document.getElementById('kpi-total').innerText = todosLosDatos.length;
       
       const promIMC = (todosLosDatos.reduce((acc, d) => acc + Number(d.IMC || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-imc').innerText = promIMC;
+      document.getElementById('kpi-imc').innerText = isNaN(promIMC) ? '0' : promIMC;
 
       const promExamen = (todosLosDatos.reduce((acc, d) => acc + Number(d.Examen || 0), 0) / todosLosDatos.length).toFixed(1);
-      document.getElementById('kpi-examen').innerText = promExamen;
+      document.getElementById('kpi-examen').innerText = isNaN(promExamen) ? '0' : promExamen;
 
       const equipos = {};
       todosLosDatos.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
         if (!equipos[eq]) equipos[eq] = { suma: 0, cuenta: 0 };
-        equipos[eq].suma += Number(d["Pruebas fisicas"] || d.PruebasFisicas || 0);
+        equipos[eq].suma += Number(d.PruebasFisicas || 0);
         equipos[eq].cuenta += 1;
       });
 
@@ -255,9 +286,8 @@
         const semIMC = getSemaforoIMC(persona.IMC);
         aplicarEstiloBadge('badge-imc', 'p-imc', 'label-imc', persona.IMC || '-', semIMC);
 
-        const pf = persona["Pruebas fisicas"] || persona.PruebasFisicas;
-        const semFisicas = getSemaforoNota(pf);
-        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', pf || '-', semFisicas);
+        const semFisicas = getSemaforoNota(persona.PruebasFisicas);
+        aplicarEstiloBadge('badge-fisicas', 'p-fisicas', 'label-fisicas', persona.PruebasFisicas || '-', semFisicas);
 
         const semExamen = getSemaforoNota(persona.Examen);
         aplicarEstiloBadge('badge-examen', 'p-examen', 'label-examen', persona.Examen || '-', semExamen);
@@ -279,7 +309,7 @@
       let htmlContent = '';
       
       datos.forEach(d => {
-        const pf = d["Pruebas fisicas"] || d.PruebasFisicas;
+        const pf = d.PruebasFisicas;
         const semIMC = getSemaforoIMC(d.IMC);
         const semFisicas = getSemaforoNota(pf);
         const semExamen = getSemaforoNota(d.Examen);
