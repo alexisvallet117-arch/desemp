@@ -129,33 +129,17 @@
   </div>
 
   <script>
-    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beVyZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFOjHCyWGgJhPv0Bv1cw491TzZUV6IDNh-hnTSZmcUJxN2beZv5ecaCm94aeYZR7x235MD4vdRhd/pub?output=csv'; 
     let todosLosDatos = [];
     let chartEquiposInstancia = null;
     let chartIMCInstancia = null;
 
-    // Convertir valores numéricos con coma o punto
     function parseNum(val) {
       if (val === null || val === undefined || val === '') return null;
       if (typeof val === 'number') return isNaN(val) ? null : val;
       const str = String(val).replace(',', '.').trim();
       const num = parseFloat(str);
       return isNaN(num) ? null : num;
-    }
-
-    // Búsqueda ultra flexible de columnas
-    function obtenerValorFlexible(row, patrones) {
-      const keys = Object.keys(row);
-      for (let key of keys) {
-        const keyLimpia = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        for (let pat of patrones) {
-          const patLimpio = pat.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          if (keyLimpia.includes(patLimpio) || patLimpio.includes(keyLimpia)) {
-            return row[key];
-          }
-        }
-      }
-      return null;
     }
 
     async function cargarDatos() {
@@ -165,32 +149,43 @@
         
         const csvText = await response.text();
 
+        // Leemos como matriz de filas sin asumír encabezados rígidos
         Papa.parse(csvText, {
-          header: true,
+          header: false,
           skipEmptyLines: true,
           complete: function(results) {
-            if (!results.data || results.data.length === 0) return;
+            if (!results.data || results.data.length < 2) return;
 
-            // Imprimir en consola para ver encabezados reales
-            console.log("Encabezados encontrados en el CSV:", Object.keys(results.data[0]));
+            const headers = results.data[0].map(h => String(h).trim());
+            const rows = results.data.slice(1);
 
-            todosLosDatos = results.data.map(d => {
-              const id = obtenerValorFlexible(d, ['id', 'no', 'codigo']);
-              const nombre = obtenerValorFlexible(d, ['nombre', 'evaluado', 'persona']);
-              const grado = obtenerValorFlexible(d, ['grado', 'rango']);
-              const equipo = obtenerValorFlexible(d, ['equipo', 'grupo']);
-              const imc = parseNum(obtenerValorFlexible(d, ['imc', 'masa']));
-              const pf = parseNum(obtenerValorFlexible(d, ['fisic', 'prueba', 'condicion', 'p.f']));
-              const examen = parseNum(obtenerValorFlexible(d, ['examen', 'teori', 'nota', 'evaluacion']));
+            // Mapeo flexible por índice de columna
+            let idxID = headers.findIndex(h => /id|no|codigo/i.test(h));
+            let idxNombre = headers.findIndex(h => /nombre|evaluado|persona/i.test(h));
+            let idxGrado = headers.findIndex(h => /grado|rango/i.test(h));
+            let idxEquipo = headers.findIndex(h => /equipo|grupo/i.test(h));
+            let idxIMC = headers.findIndex(h => /imc|masa/i.test(h));
+            let idxPF = headers.findIndex(h => /fisic|fisi|prueba|condicion|p\.f|p_f/i.test(h));
+            let idxExamen = headers.findIndex(h => /examen|teor|nota|evalua/i.test(h));
 
+            // Respaldos por posición común si no los detecta por nombre
+            if (idxID === -1) idxID = 0;
+            if (idxNombre === -1) idxNombre = 1;
+            if (idxGrado === -1) idxGrado = 2;
+            if (idxEquipo === -1) idxEquipo = 3;
+            if (idxIMC === -1) idxIMC = 4;
+            if (idxPF === -1) idxPF = 5;
+            if (idxExamen === -1) idxExamen = 6;
+
+            todosLosDatos = rows.map(r => {
               return {
-                ID: id ? String(id).trim() : null,
-                Nombre: nombre ? String(nombre).trim() : null,
-                Grado: grado ? String(grado).trim() : '-',
-                Equipo: equipo ? String(equipo).trim() : 'Sin Equipo',
-                IMC: imc,
-                PruebasFisicas: pf,
-                Examen: examen
+                ID: r[idxID] ? String(r[idxID]).trim() : null,
+                Nombre: r[idxNombre] ? String(r[idxNombre]).trim() : null,
+                Grado: r[idxGrado] ? String(r[idxGrado]).trim() : '-',
+                Equipo: r[idxEquipo] ? String(r[idxEquipo]).trim() : 'Sin Equipo',
+                IMC: parseNum(r[idxIMC]),
+                PruebasFisicas: parseNum(r[idxPF]),
+                Examen: parseNum(r[idxExamen])
               };
             }).filter(d => d.ID != null && d.Nombre != null);
 
@@ -205,8 +200,8 @@
     }
 
     function getSemaforoIMC(imc) {
+      if (imc === null || imc === undefined) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
       const val = Number(imc);
-      if (!val) return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', label: 'Sin datos' };
       if (val >= 18.5 && val <= 24.9) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', label: 'Normal' };
       if (val >= 25 && val <= 29.9) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', label: 'Sobrepeso' };
       return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', label: val < 18.5 ? 'Bajo Peso' : 'Obesidad' };
@@ -231,7 +226,6 @@
       const promExamen = examenesValidos.length ? (examenesValidos.reduce((a, b) => a + b, 0) / examenesValidos.length).toFixed(1) : '0';
       document.getElementById('kpi-examen').innerText = promExamen;
 
-      // Promedio Pruebas Físicas por Equipo
       const equipos = {};
       todosLosDatos.forEach(d => {
         const eq = d.Equipo || 'Sin Equipo';
@@ -254,7 +248,6 @@
         }
       });
 
-      // Distribución IMC
       let bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
       todosLosDatos.forEach(d => {
         if (d.IMC !== null) {
